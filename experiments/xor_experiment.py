@@ -145,3 +145,83 @@ def train(epochs: int = 200, seed: int = 42):
 
 if __name__ == "__main__":
     train(epochs=200)
+
+
+# ------------------------------------------------------------------ #
+# Normalised version — prevents weight explosion
+# ------------------------------------------------------------------ #
+
+def train_normalised(epochs: int = 200, seed: int = 42):
+    np.random.seed(seed)
+
+    hidden, output, s0, s1, s_ho = build_network()
+
+    print("=" * 50)
+    print("ZINOHK XOR — normalised weights")
+    print("=" * 50)
+
+    for epoch in range(epochs):
+        idx = np.random.permutation(4)
+        correct = 0
+
+        for i in idx:
+            inputs = XOR_INPUTS[i]
+            label  = XOR_LABELS[i]
+
+            h_input = np.array([
+                inputs[0] * s0.weight,
+                inputs[1] * s1.weight,
+            ])
+            h_out = hidden.forward(h_input)
+            o_input = np.array([h_out * s_ho.weight])
+            o_out   = output.forward(o_input)
+            pred    = predict(o_out)
+
+            if pred == int(label):
+                correct += 1
+
+            # Hebbian update
+            s0.hebbian_update(pre_fired=inputs[0], post_fired=h_out)
+            s1.hebbian_update(pre_fired=inputs[1], post_fired=h_out)
+            s_ho.hebbian_update(pre_fired=h_out,   post_fired=o_out)
+
+            # Normalise weights to prevent explosion
+            norm = abs(s0.weight) + abs(s1.weight) + 1e-8
+            s0.weight  = s0.weight  / norm
+            s1.weight  = s1.weight  / norm
+            s_ho.weight = np.clip(s_ho.weight, 0.0, 2.0)
+
+        if (epoch + 1) % 50 == 0:
+            acc = correct / 4 * 100
+            print(f"Epoch {epoch+1:3d} | accuracy: {acc:.1f}% | "
+                  f"s0={s0.weight:.3f} s1={s1.weight:.3f} "
+                  f"s_ho={s_ho.weight:.3f}")
+
+    print()
+    print("Final predictions:")
+    print(f"{'Input':<12} {'Label':<8} {'Output':<10} {'Pred':<6} {'OK'}")
+    print("-" * 46)
+    correct = 0
+    for i in range(4):
+        inputs = XOR_INPUTS[i]
+        label  = XOR_LABELS[i]
+        h_input = np.array([
+            inputs[0] * s0.weight,
+            inputs[1] * s1.weight,
+        ])
+        h_out = hidden.forward(h_input)
+        o_input = np.array([h_out * s_ho.weight])
+        o_out   = output.forward(o_input)
+        pred = predict(o_out)
+        ok   = "✅" if pred == int(label) else "❌"
+        if pred == int(label):
+            correct += 1
+        print(f"{str(inputs):<12} {int(label):<8} {o_out:<10.4f} {pred:<6} {ok}")
+    print("-" * 46)
+    print(f"Final accuracy: {correct}/4 = {correct/4*100:.1f}%")
+
+
+if __name__ == "__main__":
+    train(epochs=200)
+    print()
+    train_normalised(epochs=200)
