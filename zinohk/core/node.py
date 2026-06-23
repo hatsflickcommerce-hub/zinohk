@@ -31,7 +31,7 @@ class ZNode:
         self,
         node_id: str,
         n_inputs: int,
-        threshold: float = 0.5,
+        threshold: float = 0.1,
         lr: float = 0.01,
         target_rate: float = 0.01,
     ):
@@ -42,7 +42,7 @@ class ZNode:
         self.target_rate = target_rate
 
         # Weights: small random init
-        self.weights = np.random.uniform(-0.5, 0.5, n_inputs)
+        self.weights = np.random.uniform(0.0, 0.5, n_inputs)
 
         # History for homeostasis
         self.fire_count = 0
