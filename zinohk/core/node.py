@@ -114,3 +114,18 @@ class ZNode:
             f"theta={self.threshold:.3f}, "
             f"activity={self.activity_rate:.3f})"
         )
+
+    def adapt_threshold(self) -> None:
+        """
+        Homeostatic threshold adaptation.
+
+        Raises threshold if firing too much.
+        Lowers threshold if firing too little.
+
+        theta(t+1) = theta(t) + alpha * (activity_rate - target_rate)
+        """
+        if self.step_count == 0:
+            return
+        alpha = 0.1
+        delta = alpha * (self.activity_rate - self.target_rate)
+        self.threshold = float(np.clip(self.threshold + delta, 0.01, 10.0))
