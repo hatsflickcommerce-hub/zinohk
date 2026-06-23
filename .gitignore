@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data & models
+*.pkl
+*.pt
+*.pth
+*.ckpt
+*.npy
+*.npz
+data/raw/
+data/processed/
+checkpoints/
+
+# Logs & outputs
+logs/
+*.log
+results/
+
+# Environment secrets
+.env
+secrets.yaml
+kaggle.json
+
+# OS
+.DS_Store
+Thumbs.db
