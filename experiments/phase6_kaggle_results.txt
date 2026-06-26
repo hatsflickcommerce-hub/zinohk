@@ -1,0 +1,29 @@
+ZINOHK Phase 6 — Kaggle GPU Results
+=====================================
+Dataset     : IMDb sentiment (2000 train, 500 test)
+Features    : 400 discriminative bag-of-words
+GPU         : Tesla T4
+
+ZINOHK Results:
+  Test accuracy   : 56.2%
+  Hidden sparsity : 3.7% active
+  Training method : Supervised Hebbian (no backprop)
+  GPU required    : No
+  Learns after deploy: Yes
+
+TinyMLP Baseline:
+  Test accuracy   : 59.2%
+  Active nodes    : 100%
+  Training method : Adam + backprop
+  GPU required    : Yes
+  Learns after deploy: No
+
+Final:
+  Accuracy gap    : -3.0% vs MLP
+  Compute used    : 3.7% of dense
+  Efficiency      : 95% MLP accuracy at 4% compute cost
+
+Known gaps:
+  - Bag-of-words loses word order (fix: spike encoding)
+  - No feedback loops yet (fix: Phase 7)
+  - Catastrophic forgetting unresolved (fix: Phase 7)
