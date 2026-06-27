@@ -254,3 +254,73 @@ class HybridRetriever:
         return (f"HybridRetriever("
                 f"local={self.n_local}, "
                 f"web={self.n_fetched})")
+
+
+# ------------------------------------------------------------------ #
+# Entity extractor — get the best Wikipedia search term
+# ------------------------------------------------------------------ #
+
+def extract_entity(query: str) -> str:
+    """
+    Extract the key entity to search on Wikipedia directly.
+
+    Examples
+    --------
+    'What is the capital of France?' → 'France'
+    'Who invented the telephone?'    → 'Alexander Graham Bell telephone'
+    'How tall is the Eiffel Tower?'  → 'Eiffel Tower'
+    'Who was Napoleon?'              → 'Napoleon'
+    """
+    q = query.strip().rstrip('?')
+
+    # Direct entity patterns
+    patterns = [
+        # 'capital of X' → search X directly
+        (r'capital of (.+)',              r'\1'),
+        # 'Who is/was X' → search X
+        (r'who (is|was) (.+)',            r'\2'),
+        # 'How tall/big/long is X' → search X
+        (r'how (tall|big|long|far|old|fast) (is|was) (.+)', r'\3'),
+        # 'When was/did X' → search X
+        (r'when (was|did|is) (.+)',       r'\2'),
+        # 'Where is X' → search X
+        (r'where (is|was|are) (.+)',      r'\2'),
+        # 'What is X' → search X
+        (r'what (is|are|was) (the )?(.+)',r'\3'),
+        # 'Who invented/wrote/painted X' → search X
+        (r'who invented (.+)',            r'\1'),
+        (r'who wrote (.+)',               r'\1'),
+        (r'who painted (.+)',             r'\1'),
+        (r'who created (.+)',             r'\1'),
+        (r'who discovered (.+)',          r'\1'),
+        (r'who built (.+)',               r'\1'),
+        (r'who founded (.+)',             r'\1'),
+    ]
+
+    q_lower = q.lower()
+    for pattern, replacement in patterns:
+        m = re.match(pattern, q_lower)
+        if m:
+            entity = re.sub(pattern, replacement, q_lower).strip()
+            # Capitalise first letter of each word
+            entity = ' '.join(w.capitalize() for w in entity.split())
+            return entity
+
+    # Fallback — return cleaned query
+    return q
+
+
+def smart_fetch(query: str, sentences: int = 3) -> Optional[str]:
+    """
+    Fetch from Wikipedia using smart entity extraction.
+
+    Better than raw query search because it searches
+    the actual subject, not the question phrasing.
+    """
+    entity = extract_entity(query)
+    text   = fetch_wikipedia(entity, sentences=sentences)
+    if not text:
+        # Fallback to optimised query
+        opt  = optimise_for_wikipedia(query)
+        text = fetch_wikipedia(opt, sentences=sentences)
+    return text

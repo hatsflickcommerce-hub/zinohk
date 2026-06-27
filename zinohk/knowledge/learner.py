@@ -23,7 +23,8 @@ from zinohk.encoding.text  import TFIDFEncoder, tokenise
 from zinohk.encoding.spike import SpikeEncoder
 from zinohk.knowledge.retriever import (
     fetch_wikipedia, optimise_for_wikipedia,
-    normalise_query, extract_answer
+    normalise_query, extract_answer,
+    smart_fetch, extract_entity,
 )
 
 
@@ -141,26 +142,30 @@ class DynamicKnowledgeBase:
     def learn_from_wikipedia(self, query: str) -> Optional[str]:
         """
         Fetch and learn a fact from Wikipedia.
-
-        Parameters
-        ----------
-        query : what to search for
-
-        Returns
-        -------
-        str : the fetched text, or None
+        Stores as Q+A pair — question is the retrieval key.
         """
-        opt  = optimise_for_wikipedia(query)
-        text = fetch_wikipedia(opt, sentences=3)
-        if text:
-            answer = extract_answer(text, query)
-            self.learn(text, answer, 'wikipedia')
-            return text
-        return None
+        import re
+        text = smart_fetch(query, sentences=3)
+        if not text:
+            return None
 
-    # ------------------------------------------------------------ #
-    # Rebuild index — called automatically before retrieval
-    # ------------------------------------------------------------ #
+        # Extract best sentence as answer
+        q_words = set(re.findall(r"\b\w+\b", query.lower())) - {
+            "what","is","the","who","how","when","where",
+            "was","did","a","an","of","in","on","does"}
+        sents = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text)
+                 if len(s.strip()) > 15]
+        scored = []
+        for s in sents:
+            sw    = set(re.findall(r"\b\w+\b", s.lower()))
+            score = len(q_words & sw)
+            scored.append((score, len(s), s))
+        scored.sort(key=lambda x: (-x[0], x[1]))
+        answer = scored[0][2] if scored else text[:200]
+
+        # Store question twice as anchor — prevents cross-contamination
+        self.learn(query + " " + query + " " + answer, answer, "wikipedia")
+        return answer
 
     def _rebuild(self) -> None:
         """Rebuild TF-IDF and spike encodings for all facts."""
