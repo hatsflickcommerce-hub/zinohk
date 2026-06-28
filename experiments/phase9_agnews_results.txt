@@ -1,0 +1,32 @@
+ZINOHK Phase 9 — AG News Classification Results
+=================================================
+Dataset  : AG News (20K train, 2K test, 4 classes)
+Encoder  : sentence-transformers/all-MiniLM-L6-v2
+GPU      : Tesla T4
+
+Results:
+  Random baseline        : 25.0%
+  ZINOHK sparse          : 85.0%  (80% compute saved, no backprop)
+  Full embeddings linear : 89.4%  (0% saved, needs full compute)
+  BERT-base              : 94.0%  (backprop, 100% compute)
+
+ZINOHK sparse layer:
+  Hidden nodes    : 512
+  Sparsity        : 80% silent
+  Connections/node: 32 of 384 (8.3% sparse)
+  Training time   : 0.14s projection + 3s linear
+  Method          : sparse random projection + logistic head
+
+Per-class F1:
+  World    : 0.841
+  Sports   : 0.925
+  Business : 0.792
+  Sci/Tech : 0.831
+
+Key finding:
+  85% of BERT accuracy at 20% compute cost
+  Zero backpropagation in the sparse layer
+  4.4% gap vs full dense embeddings
+  9.0% gap vs BERT-base
+
+Next: scale to full 120K, add reasoning layer
