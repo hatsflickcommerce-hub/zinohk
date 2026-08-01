@@ -41,10 +41,15 @@ def _download(filename: str) -> str:
     return local_path
 
 
-def load_wiki_index():
+def load_wiki_index(use_v2: bool = True):
     """
     Load 6.4M Wikipedia FAISS index from HuggingFace.
     Downloads once, cached forever.
+
+    Parameters
+    ----------
+    use_v2 : use v2 index (5-sentence summaries) if True
+             falls back to v1 (1-sentence) if v2 not available
 
     Returns
     -------
@@ -54,20 +59,31 @@ def load_wiki_index():
     """
     print("Loading Wikipedia knowledge base...")
 
-    index_path = _download("wiki_full.index")
-    meta_path  = _download("meta_full.pkl")
+    # Try v2 first (5-sentence summaries — better answers)
+    try:
+        if use_v2:
+            index_path = _download("wiki_full_v2.index")
+            meta_path  = _download("meta_full_v2.pkl")
+            print("  Using v2 index (5-sentence summaries)")
+        else:
+            raise Exception("v1 requested")
+    except Exception:
+        print("  v2 not available, falling back to v1...")
+        index_path = _download("wiki_full.index")
+        meta_path  = _download("meta_full.pkl")
 
     print("  Loading FAISS index into memory...")
     index = faiss.read_index(index_path)
 
     print("  Loading metadata...")
-    with open(meta_path, 'rb') as f:
+    with open(meta_path, "rb") as f:
         meta = pickle.load(f)
 
-    titles    = meta['titles']
-    summaries = meta['summaries']
+    titles    = meta["titles"]
+    summaries = meta["summaries"]
 
-    print(f"✅ Wikipedia loaded: {index.ntotal:,} facts")
+    print(f"✅ Wikipedia loaded: {index.ntotal:,} facts "
+          f"({'v2' if use_v2 else 'v1'})")
     return index, titles, summaries
 
 

@@ -18,6 +18,10 @@ from zinohk.encoding.vocab      import Vocabulary
 from zinohk.encoding.decoder    import NGramDecoder
 from zinohk.router.domain       import DomainRouter
 from zinohk.router.thinker      import Thinker
+from zinohk.reasoning.multihop  import MultiHopReasoner
+from zinohk.reasoning.retrieval import (
+    extract_entity_v2, extract_answer_from_text,
+    rerank_results, improved_retrieve)
 from zinohk.memory.conversation import SessionStore
 
 # ── App ───────────────────────────────────────────────────────
@@ -129,6 +133,27 @@ def _init_decoder():
     decoder.train(corpus, epochs=300)
 
 # ── Endpoints ─────────────────────────────────────────────────
+
+# ── Multi-hop reasoner ───────────────────────────────────────
+def _wiki_retrieve_fn(query: str, top_k: int = 5):
+    """Retrieval function for multi-hop reasoner."""
+    kb      = domain_kbs.get('general', general_kb)
+    results = kb.retrieve(query, top_k=top_k)
+    return [
+        {
+            'title'     : fact.get('text', '')[:60],
+            'answer'    : fact.get('answer', ''),
+            'confidence': score,
+            'source'    : fact.get('category', ''),
+        }
+        for score, fact in results
+    ]
+
+multihop = MultiHopReasoner(
+    retrieve_fn    = _wiki_retrieve_fn,
+    max_hops       = 3,
+    min_confidence = 0.3,
+)
 
 @app.get("/", response_class=HTMLResponse, tags=["UI"])
 def chat_ui():
@@ -271,6 +296,59 @@ def get_session(session_id: str):
         "topic"     : buf.current_topic(),
         "entities"  : buf.get_recent_entities(),
     }
+
+class ReasonRequest(BaseModel):
+    question:      str
+    show_trace:    bool = False
+    max_hops:      int  = 3
+
+
+@app.post("/reason", tags=["Q&A"])
+def reason(req: ReasonRequest):
+    """
+    Answer complex questions using multi-hop reasoning.
+
+    Chains multiple retrieval steps to answer questions like:
+      - "Who was Einstein's wife?"
+      - "What country does the Amazon River originate in?"
+      - "Who founded Microsoft?"
+
+    Returns full reasoning trace if show_trace=true.
+    """
+    global n_requests
+    n_requests += 1
+
+    if not req.question.strip():
+        raise HTTPException(400, "Question cannot be empty")
+
+    multihop.max_hops = req.max_hops
+    t0     = time.time()
+    result = multihop.reason(req.question)
+
+    response = {
+        "question"    : req.question,
+        "answer"      : result.final_answer,
+        "confidence"  : result.confidence,
+        "n_hops"      : result.n_hops,
+        "method"      : result.method,
+        "latency_ms"  : result.total_ms,
+    }
+
+    if req.show_trace:
+        response["trace"] = [
+            {
+                "hop_num"   : h.hop_num,
+                "query"     : h.query,
+                "answer"    : h.answer[:200],
+                "confidence": h.confidence,
+                "entities"  : h.entities,
+                "latency_ms": h.latency_ms,
+            }
+            for h in result.hops
+        ]
+
+    return response
+
 
 @app.get("/domains", tags=["System"])
 def list_domains():
